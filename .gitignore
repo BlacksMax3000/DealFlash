@@ -1,0 +1,17 @@
+# Secretos — NUNCA subir a GitHub
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Bases de datos locales temporales
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Sistema
+.DS_Store
+Thumbs.db

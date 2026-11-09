@@ -1,0 +1,123 @@
+# =====================================================================
+# Radar de Ofertas — configuración principal
+# Los SECRETOS (tokens, API keys, tag real) van en .env (local) o en
+# los Secrets de GitHub Actions, NUNCA aquí.
+# =====================================================================
+
+mercado:
+  dominio_amazon: amazon.com      # tienda objetivo (LatAm/USA)
+  moneda: USD
+
+afiliado:
+  tag: ""                         # se toma de la variable AMAZON_TAG; déjalo vacío aquí
+
+recolectores:
+  rss_feeds:
+    enabled: true
+    # Feeds de comunidades de ofertas. Los 9to5 traen ofertas de Amazon (USA).
+    # Promodescuentos (red Pepper, LatAm) puede devolver 403 desde IPs de nube:
+    # actívalo si ejecutas en local y te funciona.
+    urls:
+      - https://9to5toys.com/feed/
+      - https://9to5mac.com/feed/
+      - https://9to5google.com/feed/
+      # - https://www.promodescuentos.com/rss/news
+    max_articulos_por_feed: 12
+    # Títulos recopilatorios que NO son una oferta concreta:
+    patrones_descartar:
+      - "^top\\s*\\d+"
+      - "recap"
+      - "best of"
+      - "weekly"
+      - "roundup"
+      - "newsletter"
+      - "liveblog"
+      - "^deals?\\s*:"
+      - "gu[ií]a"
+      - "review[:\\s]"
+      - "ends? tonight"
+      - "deals?\\s+(are\\s+)?(now\\s+)?live"
+      - "doorbusters?"
+      - "live from\\s+\\$\\d+"
+
+  amazon_busqueda:
+    # El endpoint de búsqueda de Amazon suele bloquear IPs de nube (GitHub
+    # Actions). Déjalo en false en la nube; en tu PC puedes probarlo en true.
+    enabled: false
+    keywords:
+      - "wireless earbuds deal"
+      - "smartwatch deal"
+      - "robot vacuum deal"
+    max_por_keyword: 8
+
+  enriquecer_producto:
+    # Descarga la página /dp/<ASIN> de cada candidata para obtener precio,
+    # valoración y reseñas REALES (verificado: funciona desde IPs de nube).
+    enabled: true
+
+filtros:
+  descuento_min_pct: 20           # regla de negocio: >= 20% real
+  descuento_max_pct: 85           # >85% en electrónica = casi siempre estafa/error
+  rating_min: 4.0                 # regla de negocio: >= 4.0 estrellas
+  resenas_min: 50                 # y >= 50 reseñas
+  precio_min: 5.0
+  precio_max: 2000.0
+  palabras_prohibidas:            # anti-réplica / anti-fraude
+    - "replica"
+    - "réplica"
+    - "falsificado"
+    - "knockoff"
+    - "imitación"
+    - "no name"
+  marcas_prohibidas: []           # añade marcas que no quieras promover
+
+publicacion:
+  max_posts_por_ciclo: 6          # no satures el canal: máximo por ciclo
+  max_candidatas_por_ciclo: 12    # techo de análisis GLM por ciclo (controla coste)
+  pausa_entre_mensajes_seg: 4.0   # respeta los rate limits de Telegram
+
+glm:
+  base_url: https://api.z.ai/api/paas/v4
+  modelo: glm-5.3                 # alternativas: glm-5.2 / glm-5.1 (más económicos)
+  temperature: 0.2
+  thinking: disabled              # "enabled" = análisis más profundo, más lento/caro
+  max_tokens: 900
+
+captacion:
+  # Prospección automática: cada oferta aprobada se reparte a estas superficies
+  # para captar compradores FUERA del canal (el negocio prospecta solo).
+  web:
+    # Sitio SEO estático en GitHub Pages: Google indexa cada ficha y trae
+    # tráfico 24/7. GitHub Actions lo despliega gratis (ver README, Paso 9).
+    enabled: true
+    directorio: site
+    titulo: "Radar de Ofertas"
+    base_url: ""                  # vacío = se deduce de SITE_BASE_URL o del repo de Actions
+    max_deals: 60                 # ofertas visibles en portada/RSS/sitemap
+    canal_telegram: ""            # o define el secret TELEGRAM_CHANNEL_URL (CTA del sitio)
+  bluesky:
+    # Post automático por oferta. Requiere BLUESKY_HANDLE + BLUESKY_APP_PASSWORD
+    # (bsky.app → Ajustes → Contraseñas de app). Gratis, sin aprobación.
+    enabled: false
+    hashtags: [ofertas, descuentos, deals]
+  discord:
+    # Se activa al definir DISCORD_WEBHOOK_URLS (una o varias, separadas por coma):
+    # en cada servidor de ofertas: Ajustes del canal → Integraciones → Webhooks.
+    enabled: true
+  reddit:
+    # ⚠️ Lee las reglas de cada subreddit ANTES: la mayoría prohíbe afiliación.
+    # Desactivado por defecto para proteger tu cuenta y tu dominio.
+    enabled: false
+    subreddits: []                # p. ej. [buildapcsales] tras revisar sus reglas
+  telegram_extra:
+    # Canales/grupos ADICIONALES donde el bot sea admin: TELEGRAM_CHAT_IDS
+    # (separados por coma). Ideal para réplica automática en un 2º canal.
+    enabled: true
+
+almacen:
+  ruta: data/radar.db
+  ttl_rechazados_dias: 14         # un rechazo se puede re-evaluar tras 14 días
+
+http:
+  pausa_entre_peticiones_seg: 1.5
+  timeout_seg: 25

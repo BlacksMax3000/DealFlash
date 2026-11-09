@@ -1,0 +1,7 @@
+# Radar de Ofertas — dependencias (todas gratuitas)
+# Instalar con:  pip install -r requirements.txt
+requests>=2.31,<3          # HTTP para RSS, Amazon, API de GLM y API de Telegram
+feedparser>=6.0,<7         # Parseo robusto de feeds RSS/Atom
+beautifulsoup4>=4.12,<5    # Parseo HTML (páginas de producto y búsqueda de Amazon)
+PyYAML>=6.0,<7             # Lectura de config.yaml
+python-dotenv>=1.0,<2      # Carga de secretos desde .env en local
