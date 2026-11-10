@@ -1,4 +1,4 @@
-"""Filtro cuantitativo duro (sin IA): descarta lo inviable antes de gastar tokens GLM."""
+"""Filtro cuantitativo duro (sin IA): descarta lo inviable antes de gastar tokens de IA."""
 from __future__ import annotations
 
 
