@@ -1,5 +1,5 @@
 # =====================================================================
-# Radar de Ofertas — configuración principal
+# DealFlash — configuración principal
 # Los SECRETOS (tokens, API keys, tag real) van en .env (local) o en
 # los Secrets de GitHub Actions, NUNCA aquí.
 # =====================================================================
@@ -73,16 +73,18 @@ filtros:
 
 publicacion:
   max_posts_por_ciclo: 6          # no satures el canal: máximo por ciclo
-  max_candidatas_por_ciclo: 12    # techo de análisis GLM por ciclo (controla coste)
+  max_candidatas_por_ciclo: 12    # techo de análisis IA por ciclo (respeta los free tiers)
   pausa_entre_mensajes_seg: 4.0   # respeta los rate limits de Telegram
 
-glm:
-  base_url: https://api.z.ai/api/paas/v4
-  modelo: glm-5.3                 # alternativas: glm-5.2 / glm-5.1 (más económicos)
-  temperature: 0.2
-  thinking: disabled              # "enabled" = análisis más profundo, más lento/caro
-  max_tokens: 900
-
+# IA — ajustes OPCIONALES por proveedor (los presets ya vienen listos en el código).
+# Si un modelo se retira, el código salta solo al siguiente de su lista; pero
+# puedes forzar el tuyo descomentando:
+# gemini:
+#   model: gemini-3.8-flash
+# groq:
+#   model: openai/gpt-oss-120b
+# openrouter:
+#   model: google/gemma-4-31b-it:free
 captacion:
   # Prospección automática: cada oferta aprobada se reparte a estas superficies
   # para captar compradores FUERA del canal (el negocio prospecta solo).
@@ -91,7 +93,7 @@ captacion:
     # tráfico 24/7. GitHub Actions lo despliega gratis (ver README, Paso 9).
     enabled: true
     directorio: site
-    titulo: "Radar de Ofertas"
+    titulo: "DealFlash"
     base_url: ""                  # vacío = se deduce de SITE_BASE_URL o del repo de Actions
     max_deals: 60                 # ofertas visibles en portada/RSS/sitemap
     canal_telegram: ""            # o define el secret TELEGRAM_CHANNEL_URL (CTA del sitio)
