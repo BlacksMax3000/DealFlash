@@ -26,7 +26,7 @@ log = logging.getLogger("radar.reddit")
 
 def _user_agent(username: str) -> str:
     # Reddit exige un User-Agent descriptivo y único por app
-    return f"script:radar-de-ofertas:v2 (by /u/{username})"
+    return f"script:dealflash:v2 (by /u/{username})"
 
 
 def post_link(subreddit: str, title: str, url: str, session: requests.Session) -> dict:

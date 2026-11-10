@@ -161,7 +161,7 @@ def _header_html(cfg) -> str:
            f'de Telegram — ofertas antes que caduquen</a>') if tg else ""
     return (
         '<header class="site">'
-        f'<h1>🛰️ {esc(cfg.site_title)}</h1>'
+        f'<h1>⚡ {esc(cfg.site_title)}</h1>'
         f'<p>Ofertas de {esc(cfg.amazon_domain)} verificadas por un analista de IA: '
         'descuentos REALES (no precios inflados), valoración mínima 4.0★ y '
         'descarte de réplicas y fraudes.</p>'
@@ -175,7 +175,7 @@ def _footer_html(cfg) -> str:
         '🏷️ Este sitio contiene enlaces de afiliado de Amazon: si compras a través '
         'de ellos recibimos una comisión sin coste adicional para ti. '
         'Los precios cambian o caducan: verifica el precio final en Amazon.<br>'
-        f'🤖 Generado automáticamente por el Radar · {esc(cfg.site_title)} · '
+        f'🤖 Generado automáticamente por {esc(cfg.site_title)} · '
         f'{datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")} UTC'
         '</footer>'
     )
@@ -245,7 +245,7 @@ def _deal_page(deal: dict, cfg, base: str) -> str:
     💸 Ver precio en {esc(cfg.amazon_domain)} →</a>
 </article>
 <div class="info">
-  <b>¿Por qué es una oferta verificada?</b> El Radar compara el precio actual
+  <b>¿Por qué es una oferta verificada?</b> DealFlash compara el precio actual
   contra el precio de lista, exige un descuento real ≥ {esc(min_disc)}%,
   valoración ≥ {esc(min_rat)}★ con reseñas suficientes y descarta
   réplicas, productos sin marca y señales de fraude antes de publicarlo.
@@ -259,7 +259,7 @@ def _deal_page(deal: dict, cfg, base: str) -> str:
 
 def _index_page(deals: list[dict], cfg, base: str) -> str:
     cards = "\n".join(_deal_card(d, base) for d in deals) or (
-        '<div class="card">Aún no hay ofertas publicadas. El radar está '
+        '<div class="card">Aún no hay ofertas publicadas. DealFlash está '
         'esperando la próxima oferta verificada…</div>'
     )
     return f'''<!DOCTYPE html>

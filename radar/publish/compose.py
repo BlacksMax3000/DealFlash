@@ -1,4 +1,4 @@
-"""Composición del mensaje final para Telegram (texto GLM + enlace + cumplimiento).
+"""Composición del mensaje final para Telegram (texto IA + enlace + cumplimiento).
 
 Cumplimiento Amazon Associates:
   - El pie declara la condición de afiliado (obligación de disclosure).
@@ -21,7 +21,7 @@ def _fallback_body(deal) -> str:
         f"🔥 OFERTÓN: {discount}\n"
         f"🛒 {deal.title[:80]}\n"
         f"💰 {cur} (antes {lst}){rating}\n"
-        f"Detectado por el Radar y verificado antes de publicar."
+        f"Detectado por DealFlash y verificado antes de publicar."
     )
 
 
@@ -81,7 +81,7 @@ def compose_social(deal, verdict: dict, affiliate_url: str | None) -> str:
     """Versión extendida en texto plano para Discord y Reddit (≤1900 chars)."""
     body = (verdict.get("message") or "").strip()
     if not body:
-        body = "Detectado por el Radar y verificado antes de publicar."
+        body = "Detectado por DealFlash y verificado antes de publicar."
 
     timestamp = datetime.now(timezone.utc).strftime("%d/%m %H:%M")
     cur, lst = fmt_price(deal.current_price), fmt_price(deal.list_price)
