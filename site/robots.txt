@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://BlacksMax3000.github.io/DealFlash/sitemap.xml
