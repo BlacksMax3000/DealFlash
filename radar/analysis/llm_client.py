@@ -9,21 +9,27 @@ para todos; lo único que cambia es base_url y el modelo (preset).
 Política de degradación (por ciclo):
   - HTTP 401/402/403 (clave inválida o sin saldo)  → el proveedor se desactiva
     de inmediato para el resto del ciclo.
+  - HTTP 404 model_not_found / contenido vacío     → cambia automáticamente al
+    siguiente modelo de su lista (los modelos free se retiran a menudo).
   - Otros errores (timeout, 5xx, 429…)             → 2 análisis fallidos seguidos
     desactivan el proveedor por el resto del ciclo.
   - Si TODOS fallan o no hay claves               → reglas locales (modo sin IA).
 Un proveedor que falla NUNCA corta el ciclo: se pasa al siguiente hasta generar
 el veredicto y publicar.
 
-Free tiers (verificados con llamadas reales, nov. 2025):
+Modelos (revisado nov. 2026; cada preset trae fallbacks por si retiran uno):
   - Gemini:     gemini-3.8-flash vía endpoint OpenAI-compatible de AI Studio.
-                OJO: gemini-2.5-flash ya NO está disponible para claves nuevas.
-  - Groq:       llama-3.3-70b-versatile · 30 RPM · 1.000 req/día
-  - OpenRouter: modelos ":free" · 20 RPM · 50 req/día (1.000/día con ≥10 USD
-                cargados una vez). nemotron-lightning "razona" antes de responder:
-                necesita max_tokens alto (2000) o devolverá contenido vacío.
-
-REPO: radar/analysis/llm_client.py (archivo NUEVO; glm_client.py queda obsoleto)
+                OJO: gemini-2.5-flash ya NO se emite a claves nuevas.
+  - Groq:       openai/gpt-oss-120b · 30 RPM · 1.000 req/día. OJO:
+                llama-3.3-70b-versatile fue RETIRADO el 16/08/2026 (HTTP 404).
+                Fallbacks: llama-3.1-8b-instant (14.400 req/día) y
+                moonshotai/kimi-k2-instruct.
+  - OpenRouter: google/gemma-4-31b-it:free (NO "razona": responde directo).
+                nemotron-lightning se descartó: agotaba max_tokens razonando y
+                devolvía contenido vacío. Fallbacks: openrouter/free (router
+                automático de modelos free) y nemotron-3.5-super-vl.
+                Modelos ":free" · 20 RPM · 50 req/día (1.000/día con ≥10 USD
+                cargados una vez).
 """
 
 from __future__ import annotations
@@ -70,41 +76,69 @@ PRESETS: dict[str, dict] = {
     "gemini": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
         "model": "gemini-3.8-flash",     # 2.5 ya no se emite a claves nuevas
+        "model_fallbacks": ["gemini-3.8-flash-lite"],
         "json_mode": True,
         "temperature": 0.2,
         "max_tokens": 900,
         "extra_headers": {},
+        "extra_body_by_model": {},
     },
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
-        "model": "llama-3.3-70b-versatile",   # 1.000 req/día en free tier
+        # llama-3.3-70b-versatile fue RETIRADO el 16/08/2026 (HTTP 404).
+        "model": "openai/gpt-oss-120b",       # 30 RPM · 1.000 req/día (free)
+        "model_fallbacks": [
+            "llama-3.1-8b-instant",           # 30 RPM · 14.400 req/día (free)
+            "moonshotai/kimi-k2-instruct",    # 60 RPM · 1.000 req/día (free)
+        ],
         "json_mode": True,
         "temperature": 0.2,
-        "max_tokens": 900,
+        "max_tokens": 1600,
         "extra_headers": {},
+        # gpt-oss "razona" antes de responder: esfuerzo bajo para no agotar el
+        # presupuesto de tokens (los presets llama no aceptan este campo).
+        "extra_body_by_model": {"openai/gpt-oss-120b": {"reasoning_effort": "low"}},
     },
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
-        "model": "nvidia/nemotron-3.5-lightning:free",
+        # gemma NO "razona": responde directo. nemotron-lightning se descartó:
+        # agotaba max_tokens razonando y devolvía contenido vacío.
+        "model": "google/gemma-4-31b-it:free",
+        "model_fallbacks": [
+            "openrouter/free",                     # router automático de free
+            "nvidia/nemotron-3.5-super-vl:free",
+        ],
         "json_mode": False,   # muchos modelos free no aceptan response_format
         "temperature": 0.2,
-        "max_tokens": 2000,   # el modelo razona (~1.200 tokens) antes de responder
+        "max_tokens": 2000,
         "extra_headers": {    # recomendados por OpenRouter (atribución)
-            "HTTP-Referer": "https://github.com/radar-de-ofertas",
-            "X-Title": "Radar de Ofertas",
+            "HTTP-Referer": "https://github.com/BlacksMax3000/DealFlash",
+            "X-Title": "DealFlash",
+        },
+        "extra_body_by_model": {
+            # los nemotron razonan: esfuerzo bajo y sin incluir el razonamiento
+            "nvidia/nemotron-3.5-super-vl:free": {
+                "reasoning": {"effort": "low", "exclude": True},
+            },
         },
     },
 }
 
 
 def _build_provider(provider_key: str, user_cfg: dict | None) -> dict:
-    """Fusiona el preset del proveedor con la configuración del usuario."""
+    """Fusiona el preset del proveedor con la configuración del usuario.
+
+    Deja siempre una lista ``models``: modelo principal + fallbacks
+    (config.yaml puede fijar el principal con ``model:``).
+    """
     p = dict(PRESETS[provider_key])
     uc = user_cfg or {}
     p["base_url"] = str(uc.get("base_url") or p["base_url"]).rstrip("/")
     model = uc.get("model") or uc.get("modelo")
     if model:
         p["model"] = str(model)
+    fallbacks = list(p.get("model_fallbacks") or [])
+    p["models"] = [str(p["model"])] + [str(m) for m in fallbacks]
     p["temperature"] = float(uc.get("temperature", p["temperature"]))
     p["max_tokens"] = int(uc.get("max_tokens", p["max_tokens"]))
     if "json_mode" in uc:
@@ -113,7 +147,8 @@ def _build_provider(provider_key: str, user_cfg: dict | None) -> dict:
 
 
 class LLMAnalyzer:
-    """Un proveedor LLM (Gemini, Groq u OpenRouter) con reintentos."""
+    """Un proveedor LLM (Gemini, Groq u OpenRouter) con reintentos y con
+    lista propia de modelos de reserva."""
 
     def __init__(self, name: str, api_key: str, provider_key: str,
                  user_cfg: dict | None = None):
@@ -121,6 +156,8 @@ class LLMAnalyzer:
         self.api_key = api_key
         self.provider_key = provider_key
         self.p = _build_provider(provider_key, user_cfg)
+        self.models: list[str] = list(self.p["models"])
+        self.model_idx = 0            # posición actual en la lista de modelos
         self.demoted = False          # desactivado para el resto del ciclo
         self.fallos_ciclo = 0         # análisis fallidos consecutivos (ciclo)
         self.last_status: int | None = None
@@ -136,7 +173,9 @@ class LLMAnalyzer:
         last_err: Exception | None = None
         for attempt in (1, 2):
             try:
-                content = self._chat(SYSTEM_PROMPT, user + (correction if attempt == 2 else ""))
+                model = self.models[self.model_idx]
+                content = self._chat(model, SYSTEM_PROMPT,
+                                     user + (correction if attempt == 2 else ""))
                 verdict = extract_json(content)
                 out = self._normalize(verdict)
                 out["provider"] = self.name
@@ -146,8 +185,14 @@ class LLMAnalyzer:
             except (LLMError, requests.RequestException) as exc:
                 last_err = exc
                 self.last_status = getattr(exc, "status", None)
-                log.warning("[%s] intento %d falló para %s: %s",
-                            self.name, attempt, deal.id, exc)
+                log.warning("[%s] intento %d falló para %s (%s): %s",
+                            self.name, attempt, deal.id,
+                            self.models[self.model_idx], exc)
+                if (self._debe_cambiar_modelo(exc)
+                        and self.model_idx < len(self.models) - 1):
+                    self.model_idx += 1
+                    log.warning("🔄 [%s] modelo retirado o sin respuesta → cambio a '%s'",
+                                self.name, self.models[self.model_idx])
 
         log.error("[%s] análisis imposible para %s (%s)", self.name, deal.id, last_err)
         return {
@@ -160,9 +205,20 @@ class LLMAnalyzer:
             "provider": self.name,
         }
 
-    def _chat(self, system: str, user: str) -> str:
+    @staticmethod
+    def _debe_cambiar_modelo(exc: Exception) -> bool:
+        """El fallo apunta a un modelo inexistente o que no devolvió texto."""
+        if isinstance(exc, LLMError):
+            if exc.status == 404:
+                return True
+            txt = str(exc)
+            return ("contenido vacío" in txt or "model_not_found" in txt
+                    or "does not exist" in txt)
+        return False
+
+    def _chat(self, model: str, system: str, user: str) -> str:
         body: dict = {
-            "model": self.p["model"],
+            "model": model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
@@ -172,6 +228,9 @@ class LLMAnalyzer:
         }
         if self.p.get("json_mode"):
             body["response_format"] = {"type": "json_object"}
+        extra = (self.p.get("extra_body_by_model") or {}).get(model)
+        if extra:
+            body.update(extra)
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",

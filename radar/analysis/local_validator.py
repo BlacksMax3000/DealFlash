@@ -1,9 +1,9 @@
 """Validador LOCAL sin IA (modo 0 API): reglas estrictas + lista de marcas conocidas.
 
-Sustituto de GLMAnalyzer con la MISMA interfaz (analyze(deal) -> veredicto).
+Sustituto de LLMAnalyzer con la MISMA interfaz (analyze(deal) -> veredicto).
 Se activa automáticamente cuando:
-  - no existe la variable/secret ZAI_API_KEY, o
-  - la API de GLM falla varias veces seguidas (saldo agotado, caída, etc.).
+  - no hay ninguna clave de IA (GEMINI/GROQ/OPENROUTER), o
+  - todos los proveedores de la cadena fallan (saldo agotado, caída, etc.).
 
 Sin IA el criterio es MÁS conservador que con ella: solo aprueba marcas de la
 lista conocida (Tier A/B) y exige más descuento a las marcas secundarias.
@@ -215,5 +215,5 @@ class RulesAnalyzer:
             reviews = f" ({deal.reviews:,} reseñas)" if deal.reviews else ""
             lines.append(f"⭐ {deal.rating}★{reviews}")
 
-        lines.append("Verificado por el Radar: marca reconocida y descuento real sobre el precio de lista.")
+        lines.append("Verificado por DealFlash: marca reconocida y descuento real sobre el precio de lista.")
         return "\n".join(lines)
