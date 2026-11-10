@@ -2,7 +2,7 @@
 
 Objetivo: que puedas verificar la lógica (reglas → análisis → enlace de
 afiliado → mensaje final) antes de configurar los secretos. Los veredictos
-simulan EXACTAMENTE la salida JSON que produce GLM en producción.
+simulan EXACTAMENTE la salida JSON que produce la IA en producción.
 Ejecución:  python -m radar.main --demo --dry-run
 """
 

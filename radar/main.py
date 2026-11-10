@@ -1,4 +1,4 @@
-"""Orquestador del Radar de Ofertas.
+"""Orquestador de DealFlash.
 
 Uso:
     python -m radar.main                 # ciclo real (recolecta → filtra → valida → publica)
@@ -8,10 +8,10 @@ Uso:
     python -m radar.main --limit 5 -v    # procesa 5 candidatas con logs de depuración
 
 Validación con fallback (100 % free tier): Gemini → Groq → OpenRouter → reglas
-locales. GLM/z.ai quedó DESCARTADO (requiere créditos). Se usa el primer
-proveedor con clave; si uno falla (clave, saldo, caída) se desactiva por el
-ciclo y pasa al siguiente — nunca se corta el ciclo. Sin ninguna clave
-funciona igual con reglas estrictas locales (no necesita ninguna API).
+locales. Se usa el primer proveedor con clave; si uno falla (clave, saldo,
+caída o modelo retirado) se salta y pasa al siguiente — nunca se corta el
+ciclo. Sin ninguna clave funciona igual con reglas estrictas locales (no
+necesita ninguna API).
 """
 
 from __future__ import annotations
@@ -99,7 +99,6 @@ def apply_rules(cfg, store: SeenStore, deals: list[Deal],
 # --------------------------------------------------------------- pipeline --
 
 # Cadena de proveedores IA con fallback (orden = prioridad). 100 % free tier.
-# GLM (z.ai) quedó descartado: requiere créditos.
 # Cada tupla: nombre visible, variable de entorno (secret), clave de config.yaml
 IA_PROVIDERS: tuple[tuple[str, str, str], ...] = (
     ("Gemini", "GEMINI_API_KEY", "gemini"),
@@ -284,12 +283,12 @@ def cmd_collect_only(cfg, limit: int | None) -> int:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="radar",
-        description="Radar de Ofertas — bot de ofertas con GLM + Telegram (cero coste)",
+        description="DealFlash — bot de ofertas con IA + Telegram (cero coste)",
     )
     parser.add_argument("--demo", action="store_true",
                         help="pipeline completo con datos de ejemplo, sin claves ni red")
     parser.add_argument("--dry-run", action="store_true",
-                        help="flujo real (fuentes + GLM) pero sin publicar en Telegram")
+                        help="flujo real (fuentes + IA) pero sin publicar en Telegram")
     parser.add_argument("--collect-only", action="store_true",
                         help="solo recolecta, filtra y enriquece; muestra candidatas y sale")
     parser.add_argument("--limit", type=int, default=None,

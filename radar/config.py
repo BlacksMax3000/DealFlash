@@ -63,7 +63,7 @@ DEFAULTS: dict = {
         "web": {
             "enabled": True,
             "directorio": "site",
-            "titulo": "Radar de Ofertas",
+            "titulo": "DealFlash",
             "base_url": "",              # SITE_BASE_URL > GitHub Pages deducido > localhost
             "max_deals": 60,
             "canal_telegram": "",        # URL pública del canal para el CTA del sitio
@@ -237,7 +237,7 @@ class Config:
 
     @property
     def site_title(self) -> str:
-        return str(self.get("captacion.web.titulo", "Radar de Ofertas"))
+        return str(self.get("captacion.web.titulo", "DealFlash"))
 
     @property
     def site_max_deals(self) -> int:

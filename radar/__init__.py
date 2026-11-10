@@ -1,3 +1,3 @@
-"""Radar de Ofertas — bot de afiliación automatizado (GLM + Telegram)."""
+"""DealFlash — bot de afiliación automatizado (IA + Telegram)."""
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"

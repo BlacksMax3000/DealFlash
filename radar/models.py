@@ -31,7 +31,7 @@ class Deal:
     notes: list[str] = field(default_factory=list)   # Trazabilidad (qué detectó cada módulo)
 
     def to_prompt_dict(self) -> dict:
-        """Subconjunto compacto que se envía al modelo GLM."""
+        """Subconjunto compacto que se envía al modelo de IA."""
         return {
             "titulo": self.title,
             "marca": self.brand,
