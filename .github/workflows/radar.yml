@@ -35,9 +35,11 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Ejecutar el Radar (recolectar → filtrar → GLM → publicar → captar)
+      - name: Ejecutar el Radar (recolectar → filtrar → validar → publicar → captar)
         env:
-          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}            # fallback IA #1 (free tier)
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}                # fallback IA #2 (free tier)
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}    # fallback IA #3 (free tier)
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           AMAZON_TAG: ${{ secrets.AMAZON_TAG }}
