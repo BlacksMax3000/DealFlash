@@ -1,21 +1,29 @@
 """Orquestador del Radar de Ofertas.
 
 Uso:
-    python -m radar.main                 # ciclo real (recolecta → filtra → GLM → publica)
+    python -m radar.main                 # ciclo real (recolecta → filtra → valida → publica)
     python -m radar.main --dry-run       # flujo real pero NO publica en Telegram
     python -m radar.main --demo          # datos de ejemplo + veredictos simulados (sin claves)
     python -m radar.main --collect-only  # solo recolecta y muestra candidatas
     python -m radar.main --limit 5 -v    # procesa 5 candidatas con logs de depuración
+
+Validación con fallback (100 % free tier): Gemini → Groq → OpenRouter → reglas
+locales. GLM/z.ai quedó DESCARTADO (requiere créditos). Se usa el primer
+proveedor con clave; si uno falla (clave, saldo, caída) se desactiva por el
+ciclo y pasa al siguiente — nunca se corta el ciclo. Sin ninguna clave
+funciona igual con reglas estrictas locales (no necesita ninguna API).
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 
 from . import demo as demo_mod
-from .analysis.glm_client import GLMAnalyzer
+from .analysis.llm_client import ChainedAnalyzer, LLMAnalyzer
+from .analysis.local_validator import RulesAnalyzer
 from .analysis.rules import hard_filter
 from .collectors import amazon_product, amazon_search, rss_feeds
 from .config import load_config, require_env
@@ -90,6 +98,36 @@ def apply_rules(cfg, store: SeenStore, deals: list[Deal],
 
 # --------------------------------------------------------------- pipeline --
 
+# Cadena de proveedores IA con fallback (orden = prioridad). 100 % free tier.
+# GLM (z.ai) quedó descartado: requiere créditos.
+# Cada tupla: nombre visible, variable de entorno (secret), clave de config.yaml
+IA_PROVIDERS: tuple[tuple[str, str, str], ...] = (
+    ("Gemini", "GEMINI_API_KEY", "gemini"),
+    ("Groq", "GROQ_API_KEY", "groq"),
+    ("OpenRouter", "OPENROUTER_API_KEY", "openrouter"),
+)
+
+
+def build_analyzer(cfg):
+    """Construye la cadena de validación según las claves disponibles.
+
+    Con claves: Gemini → Groq → OpenRouter → reglas locales (suelo garantizado).
+    Sin ninguna clave: reglas locales (modo sin IA, cero APIs).
+    """
+    chain = []
+    for nombre, env_var, clave_cfg in IA_PROVIDERS:
+        key = os.getenv(env_var, "").strip()
+        if key:
+            chain.append(LLMAnalyzer(nombre, key, clave_cfg, cfg.get(clave_cfg, {}) or {}))
+
+    local = RulesAnalyzer(cfg)
+    if not chain:
+        log.info("🧭 MODO SIN IA: ninguna API de IA configurada — validación 100%% local por reglas")
+        return local
+    log.info("🧠 Cadena de validación IA: %s → reglas locales", " → ".join(a.name for a in chain))
+    return ChainedAnalyzer(chain, local)
+
+
 def run_pipeline(cfg, args) -> int:
     session = http_session()
     store = SeenStore(cfg.db_path)
@@ -100,7 +138,7 @@ def run_pipeline(cfg, args) -> int:
         analyzer = demo_mod.FakeAnalyzer()
         deals = demo_mod.demo_deals()
     else:
-        analyzer = GLMAnalyzer(require_env("ZAI_API_KEY"), cfg.glm)
+        analyzer = build_analyzer(cfg)
         deals = gather_deals(cfg, session)
         if not deals:
             log.warning("Ningún recolector devolvió candidatas — revisa config.yaml o los avisos anteriores")
@@ -132,9 +170,9 @@ def run_pipeline(cfg, args) -> int:
         candidates = enrich_deals(cfg, session, candidates)
         candidates, _ = apply_rules(cfg, store, candidates, mark_parkable=True)  # veredicto final con datos duros
 
-    log.info("Tras filtro duro + enriquecimiento: %d candidatas para análisis GLM", len(candidates))
+    log.info("Tras filtro duro + enriquecimiento: %d candidatas para análisis", len(candidates))
 
-    # --- Análisis GLM + publicación ------------------------------------------
+    # --- Validación (cadena IA o reglas) + publicación ------------------------
     stats = {"analizadas": 0, "aprobadas": 0, "publicadas": 0}
 
     for deal in candidates:
@@ -144,12 +182,19 @@ def run_pipeline(cfg, args) -> int:
 
         stats["analizadas"] += 1
         verdict = analyzer.analyze(deal)
+        via = verdict.get("provider", "—")
+
         flags = ", ".join(verdict["flags"]) or "sin alertas"
-        log.info("🔎 [%s] score %.1f · %s · %s", deal.id, verdict["score"],
+        log.info("🔎 [%s] vía %s · score %.1f · %s · %s", deal.id, via, verdict["score"],
                  "APROBADA" if verdict["approved"] else "RECHAZADA", flags)
 
         if not verdict["approved"]:
-            store.mark(deal, "rejected", verdict["score"])
+            if "error_analisis" in verdict["flags"]:
+                # Error transitorio: NO se marca como rechazada para que esta
+                # candidata se reevalúe en el próximo ciclo.
+                log.warning("[%s] error transitorio de análisis — se reintentará el próximo ciclo", deal.id)
+            else:
+                store.mark(deal, "rejected", verdict["score"])
             continue
 
         stats["aprobadas"] += 1
@@ -198,7 +243,7 @@ def run_pipeline(cfg, args) -> int:
 
 def _summary(store: SeenStore, stats: dict, purged: int) -> None:
     log.info(
-        "══ RESUMEN DEL CICLO ══ analizadas GLM: %d · aprobadas: %d · publicadas: %d · "
+        "══ RESUMEN DEL CICLO ══ analizadas: %d · aprobadas: %d · publicadas: %d · "
         "rechazos purgados: %d · estado histórico: %s",
         stats["analizadas"], stats["aprobadas"], stats["publicadas"], purged, store.stats(),
     )
